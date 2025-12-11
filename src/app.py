@@ -174,4 +174,6 @@ if st.button("Ask") and query.strip():
                     ans = generate_openai_answer(openai_api_key, query, contexts)
                 st.write(ans)
             except Exception as e:
-                st.error(f"OpenA
+                st.error(f"OpenAI call failed: {e}")
+        else:
+            st.info("OpenAI generation disabled or no API key provided — showing retrieved contexts only.")

@@ -1,13 +1,9 @@
-fastapi==0.95.2
-uvicorn==0.22.0
+streamlit==1.26.0
 sentence-transformers==2.2.2
 faiss-cpu==1.7.4
 openai==1.0.0
-tqdm==4.66.1
-python-dotenv==1.0.1
-pydantic==1.10.12
-
-# NEW for PDFs & images:
 pypdf==4.0.0
 pillow==10.0.0
 pytesseract==0.3.10
+tqdm==4.66.1
+python-dotenv==1.0.1

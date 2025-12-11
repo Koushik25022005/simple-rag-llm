@@ -1,37 +1,50 @@
 # src/build_index.py
 import os
 import pickle
+from pathlib import Path
 from sentence_transformers import SentenceTransformer
 import faiss
-from src.ingest import ingest_dir
-from dotenv import load_dotenv
+from src.ingest import ingest_dir, ROOT
+import numpy as np
+from tqdm import tqdm
 
-load_dotenv()
+MODELS_DIR = ROOT / "models"
+MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
-MODEL_NAME = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
-MODEL_DIR = os.path.join(os.path.dirname(__file__), "..", "models")
-os.makedirs(MODEL_DIR, exist_ok=True)
-
-def build():
+def build_index(embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
+                batch_size: int = 32,
+                normalize: bool = True):
     docs = ingest_dir()
+    if not docs:
+        print("No documents to index. Add files to data/ and try again.")
+        return
+
     texts = [d["text"] for d in docs]
     ids = [d["id"] for d in docs]
+    metadatas = [d["meta"] for d in docs]
 
-    print("Loading embedding model:", MODEL_NAME)
-    model = SentenceTransformer(MODEL_NAME)
-    embeddings = model.encode(texts, show_progress_bar=True, convert_to_numpy=True)
+    model = SentenceTransformer(embedding_model_name)
+
+    # compute embeddings in batches to reduce peak memory
+    embeds = []
+    for i in tqdm(range(0, len(texts), batch_size), desc="Embedding batches"):
+        batch_texts = texts[i:i+batch_size]
+        batch_emb = model.encode(batch_texts, convert_to_numpy=True, show_progress_bar=False)
+        embeds.append(batch_emb)
+    embeddings = np.vstack(embeds)
+
+    if normalize:
+        faiss.normalize_L2(embeddings)
 
     dim = embeddings.shape[1]
-    index = faiss.IndexFlatIP(dim)  # inner product (use cosine after normalization)
-    # normalize for cosine similarity
-    faiss.normalize_L2(embeddings)
+    index = faiss.IndexFlatIP(dim)
     index.add(embeddings)
 
-    # save index and metadata
-    faiss.write_index(index, os.path.join(MODEL_DIR, "faiss.index"))
-    with open(os.path.join(MODEL_DIR, "meta.pkl"), "wb") as f:
-        pickle.dump({"ids": ids, "texts": texts}, f)
-    print("Saved index and metadata to models/")
+    # Save index + meta
+    faiss.write_index(index, str(MODELS_DIR / "faiss.index"))
+    with open(MODELS_DIR / "meta.pkl", "wb") as f:
+        pickle.dump({"ids": ids, "texts": texts, "metadatas": metadatas}, f)
+    print(f"Saved FAISS index and metadata to {MODELS_DIR}")
 
 if __name__ == "__main__":
-    build()
+    build_index()

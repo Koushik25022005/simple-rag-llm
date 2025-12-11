@@ -1,13 +1,18 @@
 # Simple RAG LLM (minimal)
+This RAG-LLM uses standard partitioning tehcniques to obtain 
+to extract the useful elements which can be the processed by the LLM 
+to produce a result that is based upon the RAG mechanism
 
-1. Copy `.env.example` → `.env` and set values.
-2. Install: `pip install -r requirements.txt`
-3. Put documents into `data/` (plain text or simple .txt).
-4. Build index:
-   `python src/build_index.py`
-5. Query:
-   `python src/query.py "Your question goes here"`
-or run API:
-   `uvicorn src.app:app --reload --port 8000`
+Steps to follow to run the LLM:
+1. Create a virtual python environment
+> Using the comamnds
+`python -m venv <venv_name>`
+>> For mac Users
+`source <venv_name>/bin/activate`
+>> For windows users
+`.<venv_name>\Scripts\activate`
+2. After you are done setting the environment, run this command in your terminal
+below to access the UI using streamlit
+`streamlit run app.py`
 
 WARNING: Do not index sensitive/proprietary data without permission.

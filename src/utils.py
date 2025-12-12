@@ -6,6 +6,9 @@ from PIL import Image
 import pytesseract
 from pathlib import Path
 import logging
+# src/utils.py  (replace or add this function)
+import re
+from typing import List
 
 logger = logging.getLogger(__name__)
 
@@ -109,17 +112,82 @@ def load_any(path: str, ocr_for_pdf: bool = True, lang: str = "eng") -> Tuple[st
     return "", meta
 
 
-def chunk_text(text: str, chunk_size: int = 400, overlap: int = 60) -> List[str]:
+
+
+_SENT_SPLIT_RE = re.compile(r'(?<=[\.\?\!])\s+')
+
+def chunk_text(text: str, chunk_size: int = 150, overlap: int = 30) -> List[str]:
     """
-    Word-based chunking; returns list of strings.
+    Sentence-aware chunker.
+
+    - chunk_size: target number of **words** per chunk (default 150).
+    - overlap: number of words to overlap between adjacent chunks (default 30).
+    Returns a list of text chunks.
+
+    Behavior:
+    1. Split text into sentences (heuristic).
+    2. Accumulate sentences until we reach chunk_size words.
+    3. If a single sentence is longer than chunk_size, split that sentence by words.
+    4. Add overlap words to the next chunk to improve retrieval context.
     """
     if not text:
         return []
-    tokens = text.split()
+
+    # Normalize whitespace
+    text = " ".join(text.split())
+
+    # First split into sentence-like segments
+    sentences = _SENT_SPLIT_RE.split(text)
+    # fallback: if no sentence splitting happened, treat the whole text as one item
+    if len(sentences) == 0:
+        sentences = [text]
+
     chunks = []
-    i = 0
-    while i < len(tokens):
-        chunk = tokens[i:i + chunk_size]
-        chunks.append(" ".join(chunk))
-        i += max(1, chunk_size - overlap)
+    current_words = []
+    current_word_count = 0
+
+    def flush_current():
+        nonlocal current_words, current_word_count
+        if current_words:
+            chunks.append(" ".join(current_words).strip())
+            # build overlap buffer
+            if overlap > 0:
+                # take last `overlap` words to start the next chunk's context
+                last_words = " ".join(current_words).split()[-overlap:]
+                current_words = last_words.copy()
+                current_word_count = len(current_words)
+            else:
+                current_words = []
+                current_word_count = 0
+
+    for sent in sentences:
+        sent_words = sent.split()
+        # If sentence alone exceeds chunk_size, split it into word blocks
+        if len(sent_words) >= chunk_size:
+            # first, flush any buffered sentences
+            if current_words:
+                flush_current()
+            # break long sentence into word-sized chunks
+            i = 0
+            while i < len(sent_words):
+                block = sent_words[i:i+chunk_size]
+                chunks.append(" ".join(block).strip())
+                i += chunk_size - overlap if (chunk_size - overlap) > 0 else chunk_size
+            # reset buffer
+            current_words = []
+            current_word_count = 0
+            continue
+
+        # add sentence to current buffer
+        current_words.extend(sent_words)
+        current_word_count += len(sent_words)
+
+        if current_word_count >= chunk_size:
+            flush_current()
+
+    # flush leftover
+    if current_words:
+        chunks.append(" ".join(current_words).strip())
+
     return chunks
+

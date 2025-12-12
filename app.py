@@ -32,7 +32,7 @@ st.write("Upload files to `data/uploads/`, build index, ask questions. Works wit
 
 # Sidebar config
 embedding_model = st.sidebar.text_input("Embedding model", value=os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2"))
-top_k = st.sidebar.slider("Top K", 1, 10, int(os.getenv("TOP_K", 5)))
+top_k = st.sidebar.slider("Top K", 1, 10, int(os.getenv("TOP_K", 1)))
 use_openai = st.sidebar.checkbox("Use OpenAI for final answer", value=bool(os.getenv("OPENAI_API_KEY")))
 openai_key_input = st.sidebar.text_input("OpenAI API key (optional)", type="password", value="")
 openai_api_key = openai_key_input or os.getenv("OPENAI_API_KEY", "")
